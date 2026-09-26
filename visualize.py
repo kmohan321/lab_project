@@ -190,3 +190,129 @@ def plot_sample_predictions(images, true_labels, pred_labels, confidences, class
     plt.savefig(save_path, dpi=200, bbox_inches='tight')
     plt.close()
     print(f"[Visualization] Saved sample predictions to: {save_path}")
+
+
+def plot_roc_curves(y_true, y_probs, class_names=CLASS_NAMES, save_path="roc_curves.png"):
+    """
+    Plots One-vs-Rest Multiclass ROC Curves with individual and macro AUC.
+    """
+    from sklearn.metrics import roc_curve, auc
+    from sklearn.preprocessing import label_binarize
+
+    n_classes = len(class_names)
+    y_true_bin = label_binarize(y_true, classes=list(range(n_classes)))
+
+    plt.figure(figsize=(10, 8))
+    colors = plt.cm.tab10(np.linspace(0, 1, n_classes))
+
+    # Compute ROC curve and ROC area for each class
+    for i, color in zip(range(n_classes), colors):
+        fpr, tpr, _ = roc_curve(y_true_bin[:, i], y_probs[:, i])
+        roc_auc = auc(fpr, tpr)
+        plt.plot(fpr, tpr, color=color, lw=2,
+                 label=f"{class_names[i]} (AUC = {roc_auc:.4f})")
+
+    # Micro-average ROC
+    fpr_micro, tpr_micro, _ = roc_curve(y_true_bin.ravel(), y_probs.ravel())
+    roc_auc_micro = auc(fpr_micro, tpr_micro)
+    plt.plot(fpr_micro, tpr_micro, color='deeppink', linestyle=':', linewidth=3,
+             label=f'Micro-average (AUC = {roc_auc_micro:.4f})')
+
+    plt.plot([0, 1], [0, 1], 'k--', lw=1.5, label='Random Chance (AUC = 0.5000)')
+    plt.xlim([-0.02, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate (1 - Specificity)', fontsize=11, fontweight='bold')
+    plt.ylabel('True Positive Rate (Sensitivity)', fontsize=11, fontweight='bold')
+    plt.title('BloodMNIST: Multiclass Receiver Operating Characteristic (ROC) Curves', fontsize=13, fontweight='bold')
+    plt.legend(loc="lower right", fontsize=9.5)
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=200, bbox_inches='tight')
+    plt.close()
+    print(f"[Visualization] Saved ROC curves to: {save_path}")
+
+
+def plot_precision_recall_curves(y_true, y_probs, class_names=CLASS_NAMES, save_path="precision_recall_curves.png"):
+    """
+    Plots One-vs-Rest Precision-Recall Curves with Average Precision (AP) scores.
+    """
+    from sklearn.metrics import precision_recall_curve, average_precision_score
+    from sklearn.preprocessing import label_binarize
+
+    n_classes = len(class_names)
+    y_true_bin = label_binarize(y_true, classes=list(range(n_classes)))
+
+    plt.figure(figsize=(10, 8))
+    colors = plt.cm.tab10(np.linspace(0, 1, n_classes))
+
+    for i, color in zip(range(n_classes), colors):
+        precision, recall, _ = precision_recall_curve(y_true_bin[:, i], y_probs[:, i])
+        ap = average_precision_score(y_true_bin[:, i], y_probs[:, i])
+        plt.plot(recall, precision, color=color, lw=2,
+                 label=f"{class_names[i]} (AP = {ap:.4f})")
+
+    # Micro-average PR
+    precision_micro, recall_micro, _ = precision_recall_curve(y_true_bin.ravel(), y_probs.ravel())
+    ap_micro = average_precision_score(y_true_bin, y_probs, average="micro")
+    plt.plot(recall_micro, precision_micro, color='gold', linestyle=':', linewidth=3,
+             label=f'Micro-average (AP = {ap_micro:.4f})')
+
+    plt.xlim([0.0, 1.02])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('Recall (Sensitivity)', fontsize=11, fontweight='bold')
+    plt.ylabel('Precision (Positive Predictive Value)', fontsize=11, fontweight='bold')
+    plt.title('BloodMNIST: Precision-Recall Curves (One-vs-Rest)', fontsize=13, fontweight='bold')
+    plt.legend(loc="lower left", fontsize=9.5)
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=200, bbox_inches='tight')
+    plt.close()
+    print(f"[Visualization] Saved Precision-Recall curves to: {save_path}")
+
+
+def plot_per_class_metrics_bar(per_class_records, save_path="per_class_metrics_bar.png"):
+    """
+    Plots a grouped bar chart comparing Precision, Recall, and F1-Score across all cell classes.
+    """
+    import pandas as pd
+
+    df = pd.DataFrame(per_class_records)
+    class_names = df['Class'].tolist()
+    precision = [p * 100 for p in df['Precision'].tolist()]
+    recall = [r * 100 for r in df['Recall'].tolist()]
+    f1 = [f * 100 for f in df['F1-Score'].tolist()]
+
+    x = np.arange(len(class_names))
+    width = 0.25
+
+    plt.figure(figsize=(13, 6.5))
+    rects1 = plt.bar(x - width, precision, width, label='Precision', color='#2b5c8f')
+    rects2 = plt.bar(x, recall, width, label='Recall', color='#4682b4')
+    rects3 = plt.bar(x + width, f1, width, label='F1-Score', color='#87ceeb')
+
+    plt.ylabel('Score (%)', fontsize=11, fontweight='bold')
+    plt.title('BloodMNIST: Per-Class Precision, Recall, and F1-Score Comparison', fontsize=13, fontweight='bold')
+    plt.xticks(x, class_names, rotation=35, ha='right', fontsize=10)
+    plt.ylim(0, 110)
+    plt.legend(loc='lower right', fontsize=10.5)
+    plt.grid(axis='y', linestyle='--', alpha=0.6)
+
+    # Attach labels above bars
+    def autolabel(rects):
+        for rect in rects:
+            height = rect.get_height()
+            plt.annotate(f'{height:.1f}%',
+                        xy=(rect.get_x() + rect.get_width() / 2, height),
+                        xytext=(0, 3),
+                        textcoords="offset points",
+                        ha='center', va='bottom', fontsize=7.5, rotation=90)
+
+    autolabel(rects1)
+    autolabel(rects2)
+    autolabel(rects3)
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=200, bbox_inches='tight')
+    plt.close()
+    print(f"[Visualization] Saved per-class metrics bar chart to: {save_path}")
+
